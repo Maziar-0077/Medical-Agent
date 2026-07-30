@@ -54,71 +54,23 @@ The pipeline is divided into three major execution boundaries:
 - **Safety Enforcement**
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'background': '#f8f9fa', 'primaryColor': '#2c3e50', 'primaryTextColor': '#ffffff', 'primaryBorderColor': '#2c3e50', 'lineColor': '#2c3e50', 'fontFamily': 'Lora, Palatino, serif'}}}%%
 graph TD
-    %% Class Definitions
-    classDef intake fill:#0f172a,stroke:#334155,stroke-width:2px,color:#f8fafc;
-    classDef inference fill:#1e1b4b,stroke:#4c1d95,stroke-width:2px,color:#f8fafc;
-    classDef safety fill:#450a0a,stroke:#991b1b,stroke-width:2px,color:#f8fafc;
-    classDef routing fill:#064e3b,stroke:#047857,stroke-width:2px,color:#f8fafc;
-    classDef tools fill:#172554,stroke:#1d4ed8,stroke-width:2px,color:#f8fafc;
-
-    User([PATIENT]) --> Chat[Chat Interface]:::intake
-    Chat --> ConvMgr[Conversation Manager]:::intake
-    ConvMgr --> MedSup[Medical AI Supervisor]:::intake
-
-    %% Boundary 1: Data Ingestion & Intent Control
-    subgraph Boundary_1 [Data Ingestion & Patient State Construction]
-        MedSup --> LogMon[Logging & Monitoring]:::intake
-        MedSup --> MemMgr[Memory & Session Manager]:::intake
-        MedSup --> Intent[Intent Detection & NLU]:::intake
-
-        LogMon --> StateBuilder[Clinical Interview & Patient State Builder]:::intake
-        MemMgr --> StateBuilder
-        Intent --> StateBuilder
-
-        StateBuilder --> RouteInfo{Enough Patient Information?}:::routing
-    end
-
-    %% Intake Routing & Planning
-    RouteInfo -- No (Missing Data) --> FollowUp[Ask Follow-up Questions]:::intake
-    FollowUp -.-> Planner[Planning Engine]:::inference
-    RouteInfo -- Yes (Context Satisfied) --> Planner
-
-    %% Boundary 2: Reasoning & Knowledge Verification
-    subgraph Boundary_2 [Reasoning & External Evidence Loop]
-        Planner --> ClinReas[Clinical Reasoning Engine]:::inference
-        
-        ClinReas --> RouteKnow{Internal Knowledge Enough?}:::routing
-        
-        RouteKnow -- Yes --> Reasoning[Internal Clinical Reasoning]:::inference
-        
-        RouteKnow -- No --> ToolRouter[Tool Router]:::tools
-        ToolRouter --> Search[Tavily Search]:::tools
-        ToolRouter --> RAG[Medical RAG]:::tools
-        
-        Search --> Fusion[Evidence Fusion]:::tools
-        RAG --> Fusion
-        
-        Reasoning --> DecisionSupport[Clinical Decision Support]:::inference
-        Fusion --> DecisionSupport
-    end
-
-    %% Boundary 3: Auditing & Deterministic Safety
-    DecisionSupport --> Verification[Verification & Safety Layer]:::safety
-
-    subgraph Boundary_3 [Actor-Critic Self-Correction & Output]
-        Verification --> RouteConf{Confidence/QA >= Threshold?}:::routing
-        
-        %% Reflection Loop (Actor-Critic)
-        RouteConf -- No (Retry Limit Not Met) --> Reflection[Reflection, Critique & Replanning]:::inference
-        Reflection -.-> Planner
-        
-        %% Deterministic Output
-        RouteConf -- Yes OR (Retries Exhausted) --> HardGate[Hard Safety Supervisor]:::safety
-        HardGate --> ClinReport[Clinical Report Generator]:::safety
-    end
-
-    ClinReport --> Final([Final Response / Telemetry Payload])
+    User([Patient Input]) --> Ingestion[Data Ingestion]
+    Ingestion --> CheckData{Sufficient Data?}
+    
+    CheckData -- No --> FollowUp[Ask Follow Up Questions]
+    FollowUp --> Ingestion
+    
+    CheckData -- Yes --> Reasoning[Clinical Reasoning Engine]
+    Reasoning --> Knowledge[Medical Knowledge Retrieval]
+    Knowledge --> Decision[Clinical Decision Support]
+    
+    Decision --> Safety[Safety Verification Gate]
+    Safety --> Audit{Meets Safety Standard?}
+    
+    Audit -- No --> Reasoning
+    Audit -- Yes --> Final([Final Clinical Report])
 ```
 
 ## 2.2 Node Engine Heuristics
