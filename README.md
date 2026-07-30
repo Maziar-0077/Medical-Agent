@@ -210,8 +210,8 @@ class AgentState(TypedDict):
 ## Clone Repository
 
 ```bash
-git clone https://github.com/Maziar-0077/ESI-Virtual-Triage.git
-cd ESI-Virtual-Triage
+git clone https://github.com/Maziar-0077/Medical-Agent.git
+cd Medical-Agent
 ```
 
 ---
