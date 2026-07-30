@@ -55,35 +55,70 @@ The pipeline is divided into three major execution boundaries:
 
 ```mermaid
 graph TD
+    %% Class Definitions
     classDef intake fill:#0f172a,stroke:#334155,stroke-width:2px,color:#f8fafc;
     classDef inference fill:#1e1b4b,stroke:#4c1d95,stroke-width:2px,color:#f8fafc;
     classDef safety fill:#450a0a,stroke:#991b1b,stroke-width:2px,color:#f8fafc;
     classDef routing fill:#064e3b,stroke:#047857,stroke-width:2px,color:#f8fafc;
+    classDef tools fill:#172554,stroke:#1d4ed8,stroke-width:2px,color:#f8fafc;
 
-    User([Patient Payload]) --> NLU
+    User([PATIENT]) --> Chat[Chat Interface]:::intake
+    Chat --> ConvMgr[Conversation Manager]:::intake
+    ConvMgr --> MedSup[Medical AI Supervisor]:::intake
 
-    subgraph Boundary_1 [Data Ingestion & Intent Control]
-        NLU[1. NLU Entity Extraction]:::intake --> Derail[2. Derailment Guardrail]:::intake
-        Derail --> Planner[3. Finite-State Planner]:::intake
-        Planner --> RoutePlanner{Intake Complete?}:::routing
+    %% Boundary 1: Data Ingestion & Intent Control
+    subgraph Boundary_1 [Data Ingestion & Patient State Construction]
+        MedSup --> LogMon[Logging & Monitoring]:::intake
+        MedSup --> MemMgr[Memory & Session Manager]:::intake
+        MedSup --> Intent[Intent Detection & NLU]:::intake
+
+        LogMon --> StateBuilder[Clinical Interview & Patient State Builder]:::intake
+        MemMgr --> StateBuilder
+        Intent --> StateBuilder
+
+        StateBuilder --> RouteInfo{Enough Patient Information?}:::routing
     end
 
-    RoutePlanner -- False (Missing Data) --> FollowUp[Follow-up Generator]:::intake --> Await([Halt Execution])
+    %% Intake Routing & Planning
+    RouteInfo -- No (Missing Data) --> FollowUp[Ask Follow-up Questions]:::intake
+    FollowUp -.-> Planner[Planning Engine]:::inference
+    RouteInfo -- Yes (Context Satisfied) --> Planner
 
-    subgraph Boundary_2 [Actor-Critic Self-Correction Loop]
-        RoutePlanner -- True (Context Satisfied) --> Physician[4. Primary Physician Agent]:::inference
-        Physician --> Auditor[5. QA Auditor Agent]:::inference
-        Auditor --> RouteAudit{QA Score >= 80%?}:::routing
+    %% Boundary 2: Reasoning & Knowledge Verification
+    subgraph Boundary_2 [Reasoning & External Evidence Loop]
+        Planner --> ClinReas[Clinical Reasoning Engine]:::inference
+        
+        ClinReas --> RouteKnow{Internal Knowledge Enough?}:::routing
+        
+        RouteKnow -- Yes --> Reasoning[Internal Clinical Reasoning]:::inference
+        
+        RouteKnow -- No --> ToolRouter[Tool Router]:::tools
+        ToolRouter --> Search[Tavily Search]:::tools
+        ToolRouter --> RAG[Medical RAG]:::tools
+        
+        Search --> Fusion[Evidence Fusion]:::tools
+        RAG --> Fusion
+        
+        Reasoning --> DecisionSupport[Clinical Decision Support]:::inference
+        Fusion --> DecisionSupport
     end
 
-    RouteAudit -- False (Retry Limit < 2) --> Physician
+    %% Boundary 3: Auditing & Deterministic Safety
+    DecisionSupport --> Verification[Verification & Safety Layer]:::safety
 
-    subgraph Boundary_3 [Deterministic Safety Output]
-        RouteAudit -- True OR (Retry >= 2) --> Supervisor[6. Hard Safety Supervisor]:::safety
-        Supervisor --> Final[7. Output Generator]:::safety
+    subgraph Boundary_3 [Actor-Critic Self-Correction & Output]
+        Verification --> RouteConf{Confidence/QA >= Threshold?}:::routing
+        
+        %% Reflection Loop (Actor-Critic)
+        RouteConf -- No (Retry Limit Not Met) --> Reflection[Reflection, Critique & Replanning]:::inference
+        Reflection -.-> Planner
+        
+        %% Deterministic Output
+        RouteConf -- Yes OR (Retries Exhausted) --> HardGate[Hard Safety Supervisor]:::safety
+        HardGate --> ClinReport[Clinical Report Generator]:::safety
     end
 
-    Final --> End([Telemetry / UI Payload])
+    ClinReport --> Final([Final Response / Telemetry Payload])
 ```
 
 ## 2.2 Node Engine Heuristics
