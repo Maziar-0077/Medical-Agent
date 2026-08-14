@@ -105,9 +105,9 @@ graph TD
 
 | Task                                | Model         |
 | ----------------------------------- | ------------- |
-| **Extraction**                      | GPT-OSS-120B  |
+| **Extraction**                      | LLaMA 3.3 70B  |
 | **Triage Assessment**               | LLaMA 3.3 70B |
-| **QA Auditor**                      | GPT-OSS-120B  |
+| **QA Auditor**                      | LLaMA 3.3 70B  |
 | **Referral & Test Recommendations** | LLaMA 3.1 8B  |
 | **Embedding**                       | LLaMA 3.1 8B  |
 | **Derailment Detection**            | LLaMA 3.3 70B |
